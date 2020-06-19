@@ -627,7 +627,7 @@ public abstract class AbstractQueuedSynchronizer
         if (pred != null) {
             node.prev = pred;
             //cas方法快速尝试在尾部添加node。
-            if (compareAndSetTail(pred, node)) {
+            if (compareAndSetTail(pred, node)) {//cas设置tail指向node，如果成功说明node的前驱还是prev，没有别的线程动过手脚
                 pred.next = node;
                 return node;
             }
@@ -844,7 +844,7 @@ public abstract class AbstractQueuedSynchronizer
              * waitStatus must be 0 or PROPAGATE.  Indicate that we
              * need a signal, but don't park yet.  Caller will need to
              * retry to make sure it cannot acquire before parking.
-             * 如果前驱结点正常，就把前驱结点的状态设置为signal。
+             * 如果前驱结点正常，就把前驱结点的状态设置为signal。就是让node进行阻塞
              */
             compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
         }
@@ -945,7 +945,7 @@ public abstract class AbstractQueuedSynchronizer
 
     /**
      * Acquires in exclusive timed mode.
-     *
+     * 申请独占锁，带有超时时间
      * @param arg the acquire argument
      * @param nanosTimeout max wait time
      * @return {@code true} if acquired
@@ -954,30 +954,31 @@ public abstract class AbstractQueuedSynchronizer
             throws InterruptedException {
         if (nanosTimeout <= 0L)
             return false;
-        final long deadline = System.nanoTime() + nanosTimeout;
-        final Node node = addWaiter(Node.EXCLUSIVE);
-        boolean failed = true;
+        final long deadline = System.nanoTime() + nanosTimeout;//计算结束时间
+        final Node node = addWaiter(Node.EXCLUSIVE);//向队尾添加一个独占结点
+        boolean failed = true;//失败标记
         try {
             for (;;) {
-                final Node p = node.predecessor();
-                if (p == head && tryAcquire(arg)) {
-                    setHead(node);
+                final Node p = node.predecessor();//获取node的前驱结点
+                if (p == head && tryAcquire(arg)) {//前驱结点为头结点，说明当前结点有资格去申请锁
+                    setHead(node);//获取锁成功后，设置当前结点为头结点
                     p.next = null; // help GC
                     failed = false;
                     return true;
                 }
-                nanosTimeout = deadline - System.nanoTime();
-                if (nanosTimeout <= 0L)
+                nanosTimeout = deadline - System.nanoTime();//判断是否超时了
+                if (nanosTimeout <= 0L)//已经到了超时时间，取消调度了
                     return false;
+                //抢锁失败，尝试为node的 前驱结点设置阻塞标记
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     nanosTimeout > spinForTimeoutThreshold)
-                    LockSupport.parkNanos(this, nanosTimeout);
-                if (Thread.interrupted())
+                    LockSupport.parkNanos(this, nanosTimeout);//使线程阻塞nanosTimeout时间后自动醒（中途可被唤醒）
+                if (Thread.interrupted())//判断当前线程是否被中断，清除中断标记
                     throw new InterruptedException();
             }
         } finally {
-            if (failed)
-                cancelAcquire(node);
+            if (failed)//如果抢锁失败
+                cancelAcquire(node);//撤销当前线程对锁的申请
         }
     }
 
@@ -1259,7 +1260,7 @@ public abstract class AbstractQueuedSynchronizer
      * blocking and unblocking, invoking {@link #tryAcquire}
      * until success or the thread is interrupted.  This method can be
      * used to implement method {@link Lock#lockInterruptibly}.
-     *
+     * 申请独占锁，不允许阻塞带有中断标记的线程
      * @param arg the acquire argument.  This value is conveyed to
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
@@ -1267,9 +1268,9 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final void acquireInterruptibly(int arg)
             throws InterruptedException {
-        if (Thread.interrupted())
+        if (Thread.interrupted()) //判断线程是否已经中断，会清除中断标记
             throw new InterruptedException();
-        if (!tryAcquire(arg))
+        if (!tryAcquire(arg)) //尝试申请锁
             doAcquireInterruptibly(arg);
     }
 
@@ -1282,7 +1283,7 @@ public abstract class AbstractQueuedSynchronizer
      * {@link #tryAcquire} until success or the thread is interrupted
      * or the timeout elapses.  This method can be used to implement
      * method {@link Lock#tryLock(long, TimeUnit)}.
-     *
+     * 申请独占锁，
      * @param arg the acquire argument.  This value is conveyed to
      *        {@link #tryAcquire} but is otherwise uninterpreted and
      *        can represent anything you like.
@@ -1292,8 +1293,8 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final boolean tryAcquireNanos(int arg, long nanosTimeout)
             throws InterruptedException {
-        if (Thread.interrupted())
-            throw new InterruptedException();
+        if (Thread.interrupted()) //判断线程是否中断，会清除中断标记
+            throw new InterruptedException(); //如果有中断标记，则抛出异常
         return tryAcquire(arg) ||
             doAcquireNanos(arg, nanosTimeout);
     }
@@ -1410,7 +1411,7 @@ public abstract class AbstractQueuedSynchronizer
      *
      * <p>In this implementation, this operation returns in
      * constant time.
-     *
+     * 判断队列中是否存在结点，
      * @return {@code true} if there may be other threads waiting to acquire
      */
     public final boolean hasQueuedThreads() {
@@ -1490,7 +1491,7 @@ public abstract class AbstractQueuedSynchronizer
      *
      * <p>This implementation traverses the queue to determine
      * presence of the given thread.
-     *
+     * 判断thread是否已经在队列中了
      * @param thread the thread
      * @return {@code true} if the given thread is on the queue
      * @throws NullPointerException if the thread is null
@@ -1558,7 +1559,7 @@ public abstract class AbstractQueuedSynchronizer
      *     // try to acquire normally
      *   }
      * }}</pre>
-     *
+     * 判断队列中是否有优先级更高的等待线程
      * @return {@code true} if there is a queued thread preceding the
      *         current thread, and {@code false} if the current thread
      *         is at the head of the queue or the queue is empty
@@ -1585,7 +1586,7 @@ public abstract class AbstractQueuedSynchronizer
      * internal data structures.  This method is designed for use in
      * monitoring system state, not for synchronization
      * control.
-     *
+     * 获取队列的长度，不包含头尾结点
      * @return the estimated number of threads waiting to acquire
      */
     public final int getQueueLength() {
@@ -1605,7 +1606,7 @@ public abstract class AbstractQueuedSynchronizer
      * returned collection are in no particular order.  This method is
      * designed to facilitate construction of subclasses that provide
      * more extensive monitoring facilities.
-     *
+     * 把队列中的所有结点包含的线程加入集合返回
      * @return the collection of threads
      */
     public final Collection<Thread> getQueuedThreads() {
@@ -1808,7 +1809,7 @@ public abstract class AbstractQueuedSynchronizer
      * does not guarantee that a future {@code signal} will awaken
      * any threads.  This method is designed primarily for use in
      * monitoring of the system state.
-     *
+     * 判断当前条件队列中是否存在等待者
      * @param condition the condition
      * @return {@code true} if there are any waiting threads
      * @throws IllegalMonitorStateException if exclusive synchronization
@@ -1878,16 +1879,16 @@ public abstract class AbstractQueuedSynchronizer
      * general need to be accompanied by documentation describing
      * condition semantics that rely on those of the associated
      * {@code AbstractQueuedSynchronizer}.
-     *
+     * 同步条件类，不带头结点的单链表形式
      * <p>This class is Serializable, but all fields are transient,
      * so deserialized conditions have no waiters.
      */
     public class ConditionObject implements Condition, java.io.Serializable {
         private static final long serialVersionUID = 1173984872572414699L;
         /** First node of condition queue. */
-        private transient Node firstWaiter;
+        private transient Node firstWaiter;//条件队列的头结点
         /** Last node of condition queue. */
-        private transient Node lastWaiter;
+        private transient Node lastWaiter;//条件队列的尾结点
 
         /**
          * Creates a new {@code ConditionObject} instance.
@@ -1898,6 +1899,7 @@ public abstract class AbstractQueuedSynchronizer
 
         /**
          * Adds a new waiter to wait queue.
+         * 添加一个新的node到条件队列
          * @return its new wait node
          */
         private Node addConditionWaiter() {
@@ -2085,9 +2087,9 @@ public abstract class AbstractQueuedSynchronizer
          * </ol>
          */
         public final void await() throws InterruptedException {
-            if (Thread.interrupted())
+            if (Thread.interrupted()) //判断线程是否已经中断，不会清楚中断标记
                 throw new InterruptedException();
-            Node node = addConditionWaiter();
+            Node node = addConditionWaiter();//添加结点到队尾
             int savedState = fullyRelease(node);
             int interruptMode = 0;
             while (!isOnSyncQueue(node)) {

@@ -172,7 +172,7 @@ import java.util.Date;
  * to an interrupt over normal method return. This is true even if it can be
  * shown that the interrupt occurred after another action that may have
  * unblocked the thread. An implementation should document this behavior.
- *
+ * Condition配合lock使用，起线程间通信的作用
  * @since 1.5
  * @author Doug Lea
  */
@@ -224,7 +224,10 @@ public interface Condition {
      * method return in response to a signal. In that case the implementation
      * must ensure that the signal is redirected to another waiting thread, if
      * there is one.
-     *
+     * 暂停此线程直至以下情况发生：
+     * 1.这个Condition被signal()或者signalAll()
+     * 2.Thread.interrupt()
+     * 3.伪wakeup
      * @throws InterruptedException if the current thread is interrupted
      *         (and interruption of thread suspension is supported)
      */
@@ -256,7 +259,7 @@ public interface Condition {
      * be set.
      *
      * <p><b>Implementation Considerations</b>
-     *
+     * 和上面一样，但是不响应中断
      * <p>The current thread is assumed to hold the lock associated with this
      * {@code Condition} when this method is called.
      * It is up to the implementation to determine if this is
@@ -354,6 +357,7 @@ public interface Condition {
      *         indicates that no time remains.
      * @throws InterruptedException if the current thread is interrupted
      *         (and interruption of thread suspension is supported)
+     * 带超时时间的阻塞
      */
     long awaitNanos(long nanosTimeout) throws InterruptedException;
 
@@ -369,6 +373,7 @@ public interface Condition {
      *         before return from the method, else {@code true}
      * @throws InterruptedException if the current thread is interrupted
      *         (and interruption of thread suspension is supported)
+     * 带超时时间的阻塞
      */
     boolean await(long time, TimeUnit unit) throws InterruptedException;
 
@@ -446,6 +451,7 @@ public interface Condition {
      *         {@code true}
      * @throws InterruptedException if the current thread is interrupted
      *         (and interruption of thread suspension is supported)
+     * 阻塞指定时间
      */
     boolean awaitUntil(Date deadline) throws InterruptedException;
 
@@ -464,6 +470,7 @@ public interface Condition {
      * document this precondition and any actions taken if the lock is
      * not held. Typically, an exception such as {@link
      * IllegalMonitorStateException} will be thrown.
+     * 唤醒某个等待在此condition的线程
      */
     void signal();
 
@@ -482,6 +489,7 @@ public interface Condition {
      * document this precondition and any actions taken if the lock is
      * not held. Typically, an exception such as {@link
      * IllegalMonitorStateException} will be thrown.
+     * 唤醒所有等待在此condition的线程
      */
     void signalAll();
 }
