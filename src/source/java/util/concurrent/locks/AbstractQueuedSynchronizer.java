@@ -728,7 +728,7 @@ public abstract class AbstractQueuedSynchronizer
      * Sets head of queue, and checks if successor may be waiting
      * in shared mode, if so propagating if either propagate > 0 or
      * PROPAGATE status was set.
-     *  更新node结点为头结点，
+     *  更新node结点为头结点，并为其设置Node.PROPAGATE标记，或唤醒其后续结点
      * @param node the node
      * @param propagate the return value from a tryAcquireShared
      */
@@ -1020,19 +1020,20 @@ public abstract class AbstractQueuedSynchronizer
 
     /**
      * Acquires in shared interruptible mode.
+     * 抢锁失败后，尝试将其阻塞
      * @param arg the acquire argument
      */
     private void doAcquireSharedInterruptibly(int arg)
         throws InterruptedException {
-        final Node node = addWaiter(Node.SHARED);
+        final Node node = addWaiter(Node.SHARED);//将当前线程添加到队列尾部
         boolean failed = true;
         try {
             for (;;) {
-                final Node p = node.predecessor();
-                if (p == head) {
-                    int r = tryAcquireShared(arg);
-                    if (r >= 0) {
-                        setHeadAndPropagate(node, r);
+                final Node p = node.predecessor();//获取当前结点的前驱
+                if (p == head) { //这种情况，说明node是队首结点，有资格申请锁
+                    int r = tryAcquireShared(arg);//尝试申请锁
+                    if (r >= 0) { //state许可证数量为0
+                        setHeadAndPropagate(node, r);//更新node为头结点
                         p.next = null; // help GC
                         failed = false;
                         return;
@@ -1352,13 +1353,14 @@ public abstract class AbstractQueuedSynchronizer
      * This value is conveyed to {@link #tryAcquireShared} but is
      * otherwise uninterpreted and can represent anything
      * you like.
+     * 申请共享锁，不允许阻塞带有中断标记的线程
      * @throws InterruptedException if the current thread is interrupted
      */
     public final void acquireSharedInterruptibly(int arg)
             throws InterruptedException {
-        if (Thread.interrupted())
+        if (Thread.interrupted())//如果已经是中断标记，则抛出线程，清除中断状态
             throw new InterruptedException();
-        if (tryAcquireShared(arg) < 0)
+        if (tryAcquireShared(arg) < 0)//申请共享锁
             doAcquireSharedInterruptibly(arg);
     }
 

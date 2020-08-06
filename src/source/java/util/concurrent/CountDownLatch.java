@@ -149,7 +149,8 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * <a href="package-summary.html#MemoryVisibility"><i>happen-before</i></a>
  * actions following a successful return from a corresponding
  * {@code await()} in another thread.
- *
+ * 线程开始时，设置一定计数器，只要这个计数器还大于0，则别的线程申请锁失败
+ * 只有这个计数器=0时，别的线程才能申请锁
  * @since 1.5
  * @author Doug Lea
  */
@@ -160,19 +161,19 @@ public class CountDownLatch {
      */
     private static final class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = 4982264981922014374L;
-
+        //设置计数器大小
         Sync(int count) {
             setState(count);
         }
-
+        //获取当前计数器的值
         int getCount() {
             return getState();
         }
-
+        //1表示当前线程可以去竞争锁了
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
-
+        //计数器的值减一
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
             for (;;) {
@@ -194,6 +195,7 @@ public class CountDownLatch {
      * @param count the number of times {@link #countDown} must be invoked
      *        before threads can pass through {@link #await}
      * @throws IllegalArgumentException if {@code count} is negative
+     * 构造函数，设置初始值
      */
     public CountDownLatch(int count) {
         if (count < 0) throw new IllegalArgumentException("count < 0");
@@ -227,6 +229,7 @@ public class CountDownLatch {
      * @throws InterruptedException if the current thread is interrupted
      *         while waiting
      */
+    // 使线程陷入阻塞，不允许阻塞带有中断标记的线程
     public void await() throws InterruptedException {
         sync.acquireSharedInterruptibly(1);
     }
@@ -272,6 +275,7 @@ public class CountDownLatch {
      * @throws InterruptedException if the current thread is interrupted
      *         while waiting
      */
+    // 使线程陷入阻塞，不允许阻塞带有中断标记的线程（一次申请锁失败后，会带着超时标记重新申请）
     public boolean await(long timeout, TimeUnit unit)
         throws InterruptedException {
         return sync.tryAcquireSharedNanos(1, unit.toNanos(timeout));
