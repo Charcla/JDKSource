@@ -600,10 +600,10 @@ public abstract class AbstractQueuedSynchronizer
      * @return node's predecessor
      */
     private Node enq(final Node node) {
-        //cas自旋，直到成功添加
+        //cas自旋，直到成功添加，只有tail不为null，才能退出循环
         for (;;) {
             Node t = tail;
-            if (t == null) { // Must initialize，cas设置头结点，并且tail也指向他
+            if (t == null) { // Must initialize，cas设置头结点，并且tail也指向他，注意此时头结点指向node的thread为空
                 if (compareAndSetHead(new Node()))
                     tail = head;
             } else {
@@ -900,7 +900,7 @@ public abstract class AbstractQueuedSynchronizer
             //自旋，死循环，成功申请到锁后退出
             for (;;) {
                 final Node p = node.predecessor();//拿前驱结点
-                if (p == head && tryAcquire(arg)) { //node结点上一个就是头结点，说明node是対首了，有权申请锁
+                if (p == head && tryAcquire(arg)) { //node结点上一个就是头结点，说明node是対首了，有权申请锁（再次尝试，提高性能）
                     setHead(node);//设置当前结点为头结点，（放弃之前的头结点）
                     p.next = null; // help GC
                     failed = false; //获取锁成功了
@@ -922,20 +922,23 @@ public abstract class AbstractQueuedSynchronizer
     /**
      * Acquires in exclusive interruptible mode.
      * @param arg the acquire argument
+     * 在抢锁失败后，阻塞线程
+     *
      */
     private void doAcquireInterruptibly(int arg)
         throws InterruptedException {
-        final Node node = addWaiter(Node.EXCLUSIVE);
+        final Node node = addWaiter(Node.EXCLUSIVE); //将线程加入队列队尾
         boolean failed = true;
         try {
             for (;;) {
                 final Node p = node.predecessor();
-                if (p == head && tryAcquire(arg)) {
+                if (p == head && tryAcquire(arg)) { //如果node的上一个节点为头结点，那么试一下再次申请锁，避免直接阻塞
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
                     return;
                 }
+                //shouldParkAfterFailedAcquire先判断node是不是应该要去park，返回true，则执行parkAndCheckInterrupt
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
                     throw new InterruptedException();
