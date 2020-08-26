@@ -212,6 +212,11 @@ import java.util.Collection;
  * @since 1.5
  * @author Doug Lea
  */
+
+/**
+ * 规则：
+ * 1.写锁被占用的情况，不允许其他线程申请读锁
+ */
 public class ReentrantReadWriteLock
         implements ReadWriteLock, java.io.Serializable {
     private static final long serialVersionUID = -6992448646407690164L;
@@ -257,16 +262,26 @@ public class ReentrantReadWriteLock
          * Lock state is logically divided into two unsigned shorts:
          * The lower one representing the exclusive (writer) lock hold count,
          * and the upper the shared (reader) hold count.
+         *
+         * state表示锁的状态，低16表示写，高16位表示读
          */
 
-        static final int SHARED_SHIFT   = 16;
-        static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
-        static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
-        static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
+        static final int SHARED_SHIFT   = 16; //一个界限，int型的数左移，右移16刚好去掉高16位和低16位
+        static final int SHARED_UNIT    = (1 << SHARED_SHIFT); //共享锁锁掩码，0x00010000
+        static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;//表示允许的锁的数量上限，0x0000FFFF
+        static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1; //独占锁掩码，0x0000FFFF
 
         /** Returns the number of shared holds represented in count  */
+        /**
+         * 计算读锁的数量
+         * <<<无符号右移，去掉了低16位
+         */
         static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }
         /** Returns the number of exclusive holds represented in count  */
+        /**
+         * 计算写锁的数量
+         * &运算去掉了高16位
+         */
         static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }
 
         /**
@@ -331,8 +346,8 @@ public class ReentrantReadWriteLock
          * <p>This allows tracking of read holds for uncontended read
          * locks to be very cheap.
          */
-        private transient Thread firstReader = null;
-        private transient int firstReaderHoldCount;
+        private transient Thread firstReader = null; //当前持有读锁的所有线程里的第一个读的线程
+        private transient int firstReaderHoldCount; //当前持有读锁的所有线程里的第一个读的线程的获取锁的次数
 
         Sync() {
             readHolds = new ThreadLocalHoldCounter();
@@ -572,23 +587,24 @@ public class ReentrantReadWriteLock
          * Performs tryLock for read, enabling barging in both modes.
          * This is identical in effect to tryAcquireShared except for
          * lack of calls to readerShouldBlock.
+         * 申请读锁
          */
         final boolean tryReadLock() {
             Thread current = Thread.currentThread();
             for (;;) {
-                int c = getState();
-                if (exclusiveCount(c) != 0 &&
+                int c = getState();//获取state的值
+                if (exclusiveCount(c) != 0 && //如果已经有线程获取到写锁了&&写锁的持有者不是当前此线程，那么则直接获取读锁失败
                     getExclusiveOwnerThread() != current)
                     return false;
-                int r = sharedCount(c);
-                if (r == MAX_COUNT)
+                int r = sharedCount(c);//计算共享锁的数量
+                if (r == MAX_COUNT) //共享锁数量已经到达上限了
                     throw new Error("Maximum lock count exceeded");
-                if (compareAndSetState(c, c + SHARED_UNIT)) {
-                    if (r == 0) {
-                        firstReader = current;
+                if (compareAndSetState(c, c + SHARED_UNIT)) {//cas原子更新state的值
+                    if (r == 0) { //共享锁未被持有的情况下（不包括当前线程）
+                        firstReader = current; //firstReader指向当前持有共享锁的线程里面的第一个获取共享锁的线程
                         firstReaderHoldCount = 1;
-                    } else if (firstReader == current) {
-                        firstReaderHoldCount++;
+                    } else if (firstReader == current) { //当前申请锁的线程就是第一个获取读锁的线程
+                        firstReaderHoldCount++;//获取次数+1
                     } else {
                         HoldCounter rh = cachedHoldCounter;
                         if (rh == null || rh.tid != getThreadId(current))
