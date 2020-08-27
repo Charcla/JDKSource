@@ -288,6 +288,8 @@ public class ReentrantReadWriteLock
          * A counter for per-thread read hold counts.
          * Maintained as a ThreadLocal; cached in cachedHoldCounter
          * 计数器，配合读锁使用
+         * 除了首个成功申请到读锁的线程外，
+         * 其他每个线程都有一个局部变量HoldCounter，用来记录此线程对读锁的申请次数
          */
         static final class HoldCounter {
             int count = 0;//表示读线程的重入次数
@@ -311,6 +313,7 @@ public class ReentrantReadWriteLock
          * The number of reentrant read locks held by current thread.
          * Initialized only in constructor and readObject.
          * Removed whenever a thread's read hold count drops to 0.
+         * 提供线程局部变量的缓存机制，可用来创建新的holdCount
          */
         private transient ThreadLocalHoldCounter readHolds;
 
@@ -609,11 +612,11 @@ public class ReentrantReadWriteLock
                         firstReaderHoldCount++;//获取次数+1
                     } else {//读锁已经被其他线程占有的情况
                         HoldCounter rh = cachedHoldCounter;//获取计数器
-                        if (rh == null || rh.tid != getThreadId(current))
+                        if (rh == null || rh.tid != getThreadId(current))//计数器为空||计数器未绑定线程
                             cachedHoldCounter = rh = readHolds.get();
                         else if (rh.count == 0)
                             readHolds.set(rh);
-                        rh.count++;
+                        rh.count++; //计数+1
                     }
                     return true;
                 }
