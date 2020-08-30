@@ -338,6 +338,7 @@ public class ThreadLocal<T> {
 
         /**
          * Set the resize threshold to maintain at worst a 2/3 load factor.
+         * 计算扩容临界值
          */
         private void setThreshold(int len) {
             threshold = len * 2 / 3;
@@ -447,7 +448,7 @@ public class ThreadLocal<T> {
 
         /**
          * Set the value associated with key.
-         *
+         * 在每个线程独有的map中存放值
          * @param key the thread local object
          * @param value the value to be set
          */
@@ -460,28 +461,29 @@ public class ThreadLocal<T> {
 
             Entry[] tab = table;
             int len = tab.length;
-            int i = key.threadLocalHashCode & (len-1);
+            int i = key.threadLocalHashCode & (len-1);//计算threadlocal在数组中的索引
 
             for (Entry e = tab[i];
-                 e != null;
-                 e = tab[i = nextIndex(i, len)]) {
+                 e != null;   //当前索引位置已经有值
+                 e = tab[i = nextIndex(i, len)]) { //开放地址法，当前位置有值了且不等于要放入的threadlocal，那么就继续找下一个
                 ThreadLocal<?> k = e.get();
 
-                if (k == key) {
+                if (k == key) {  //是同一个threadlocal，那么就直接更新值
                     e.value = value;
                     return;
                 }
 
-                if (k == null) {
+                if (k == null) { //e不为null,但是e的null已经为空了，说明此值已经是垃圾值了
                     replaceStaleEntry(key, value, i);
                     return;
                 }
             }
-
+            //找到空槽了也没有找到threadlocal，直接插入
             tab[i] = new Entry(key, value);
             int sz = ++size;
+            //从下标i开始向右遍历，清除垃圾，如果没有元素被清理，那么检查一下是不是应该扩容
             if (!cleanSomeSlots(i, sz) && sz >= threshold)
-                rehash();
+                rehash();//扩容
         }
 
         /**
@@ -511,7 +513,7 @@ public class ThreadLocal<T> {
          * As a side effect, this method expunges all stale entries in the
          * "run" containing the stale entry.  (A run is a sequence of entries
          * between two null slots.)
-         *
+         * 从staleSlot位置开始向后遍历，给key这个threadlocal对象找到合适的位置插入并且清理垃圾数据
          * @param  key the key
          * @param  value the value to be associated with key
          * @param  staleSlot index of the first stale entry encountered while
@@ -527,7 +529,7 @@ public class ThreadLocal<T> {
             // We clean out whole runs at a time to avoid continual
             // incremental rehashing due to garbage collector freeing
             // up refs in bunches (i.e., whenever the collector runs).
-            int slotToExpunge = staleSlot;
+            int slotToExpunge = staleSlot; //在staleSlot位置往左遍历，找到整个数组中第一个出现脏数据的位置
             for (int i = prevIndex(staleSlot, len);
                  (e = tab[i]) != null;
                  i = prevIndex(i, len))
@@ -536,6 +538,7 @@ public class ThreadLocal<T> {
 
             // Find either the key or trailing null slot of run, whichever
             // occurs first
+            //从staleSlot位置开始向后遍历，找到第一个最晚出现垃圾值的位置
             for (int i = nextIndex(staleSlot, len);
                  (e = tab[i]) != null;
                  i = nextIndex(i, len)) {
@@ -546,15 +549,21 @@ public class ThreadLocal<T> {
                 // The newly stale slot, or any other stale slot
                 // encountered above it, can then be sent to expungeStaleEntry
                 // to remove or rehash all of the other entries in run.
-                if (k == key) {
-                    e.value = value;
+                if (k == key) {//找到了这个key的情况下，更新值并且清除垃圾数据
+                    e.value = value; //更新参数里面的threadlocal对应的value值
 
+                    /**
+                     * 这里让i位置指向staleSlot指向的脏数据，然后staleSlot位置指向e
+                     * 简单来讲，就是当前位置的threadlocal对象和方法参数传进来的staleSlot值互换了位置
+                     * 好处是threadlocal更接近了理想的位置，staleSlot是真实位置向右能找到最近的位置了。
+                     */
                     tab[i] = tab[staleSlot];
                     tab[staleSlot] = e;
 
                     // Start expunge at preceding stale entry if it exists
-                    if (slotToExpunge == staleSlot)
-                        slotToExpunge = i;
+                    if (slotToExpunge == staleSlot)//这两个相等，表明数组的[0，staleSlot]位置上没有垃圾数据
+                        slotToExpunge = i;//更新slotToExpunge的位置
+                    //清除expungeStaleEntry(slotToExpunge)位置的下一个开始，正常情况下长度为len的数组长度的垃圾
                     cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
                     return;
                 }
@@ -562,15 +571,23 @@ public class ThreadLocal<T> {
                 // If we didn't find stale entry on backward scan, the
                 // first stale entry seen while scanning for key is the
                 // first still present in the run.
-                if (k == null && slotToExpunge == staleSlot)
-                    slotToExpunge = i;
+                if (k == null && slotToExpunge == staleSlot)//当前i这个位置的值是垃圾数据了，并且staleSlot就是整个数组最靠左边的垃圾索引
+                    slotToExpunge = i;//将slotToExpunge的值右移
             }
 
+            /**
+             * 在上面的for循环结束以后，i（i指的是上面for循环结束时的i的值）指向的是一个空槽
+             * 如果slotToExpunge==staleSlot，那么说明[staleSlot，i]之间没有垃圾值
+             * 如果slotToExpunge！=staleSlot，那么slotToExpunge要么在staleSlot左边最远的一个，要么是在staleSlot右边最近的一个
+             *
+             */
+
             // If key not found, put new entry in stale slot
-            tab[staleSlot].value = null;
+            tab[staleSlot].value = null; //释放值的引用
             tab[staleSlot] = new Entry(key, value);
 
             // If there are any other stale entries in run, expunge them
+            //清理垃圾值
             if (slotToExpunge != staleSlot)
                 cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
         }
@@ -585,12 +602,18 @@ public class ThreadLocal<T> {
          * @return the index of the next null slot after staleSlot
          * (all between staleSlot and this slot will have been checked
          * for expunging).
+         * 从staleSlot位置开始，遍历一段连续的元素并清理垃圾
+         * 在这一段staleSlot位置开始的连续元素中，遇到“错位”的元素，就将他往左移动到
+         * 离理想位置最近的位置。那么也可以说，查找某个元素时，发现他的理想位置被占了，
+         * 那么就从这个理想位置往后遍历，直到找到这个元素的真实位置，在理想位置到真实位置
+         * 之间的所有元素都是连续的，不为空的。
          */
         private int expungeStaleEntry(int staleSlot) {
             Entry[] tab = table;
             int len = tab.length;
 
             // expunge entry at staleSlot
+            //清除数组staleSlot位置的值
             tab[staleSlot].value = null;
             tab[staleSlot] = null;
             size--;
@@ -599,7 +622,7 @@ public class ThreadLocal<T> {
             Entry e;
             int i;
             for (i = nextIndex(staleSlot, len);
-                 (e = tab[i]) != null;
+                 (e = tab[i]) != null;//从staleSlot位置一直向右遍历，知道遇到空位置才停止
                  i = nextIndex(i, len)) {
                 ThreadLocal<?> k = e.get();
                 if (k == null) {
@@ -608,18 +631,18 @@ public class ThreadLocal<T> {
                     size--;
                 } else {
                     int h = k.threadLocalHashCode & (len - 1);
-                    if (h != i) {
+                    if (h != i) {//说明这个位置存放的threadlocal不是他最理想的位置
                         tab[i] = null;
 
                         // Unlike Knuth 6.4 Algorithm R, we must scan until
                         // null because multiple entries could have been stale.
-                        while (tab[h] != null)
+                        while (tab[h] != null)//当前threadlocal最理想的位置一直往后遍历，找到目前最合适的位置
                             h = nextIndex(h, len);
-                        tab[h] = e;
+                        tab[h] = e;//将当前threadlocal往左移到最合适的位置
                     }
                 }
             }
-            return i;
+            return i;//返回值是从staleSlot位置向右找到的第一个使遍历过程结束的空槽下标
         }
 
         /**
@@ -643,7 +666,8 @@ public class ThreadLocal<T> {
          * more or less aggressive by weighting n instead of just
          * using straight log n. But this version is simple, fast, and
          * seems to work well.)
-         *
+         * 从下标i位置开始向后遍历，清理垃圾值
+         * n这个参数是初始进来控制的循环次数
          * @return true if any stale entries have been removed.
          */
         private boolean cleanSomeSlots(int i, int n) {
@@ -653,11 +677,15 @@ public class ThreadLocal<T> {
             do {
                 i = nextIndex(i, len);
                 Entry e = tab[i];
-                if (e != null && e.get() == null) {
+                if (e != null && e.get() == null) {//i位置的threadlocal已经是垃圾的情况下
                     n = len;
-                    removed = true;
-                    i = expungeStaleEntry(i);
+                    removed = true; //标记是否清除过元素
+                    i = expungeStaleEntry(i);//从i位置开始，遍历一段连续的元素并清理垃圾
                 }
+                /**
+                 * 如果扫描没遇到垃圾值，那么时间复杂度log2n,
+                 * 如果遇到垃圾值，那么扫描次数n又会扩大到整个数组的长度，并且扫描范围i也会扩大
+                 */
             } while ( (n >>>= 1) != 0);
             return removed;
         }
@@ -666,9 +694,10 @@ public class ThreadLocal<T> {
          * Re-pack and/or re-size the table. First scan the entire
          * table removing stale entries. If this doesn't sufficiently
          * shrink the size of the table, double the table size.
+         * 扩容
          */
         private void rehash() {
-            expungeStaleEntries();
+            expungeStaleEntries();//清除数组中所有垃圾值
 
             // Use lower threshold for doubling to avoid hysteresis
             if (size >= threshold - threshold / 4)
@@ -677,6 +706,7 @@ public class ThreadLocal<T> {
 
         /**
          * Double the capacity of the table.
+         * 加倍扩容
          */
         private void resize() {
             Entry[] oldTab = table;
@@ -689,11 +719,11 @@ public class ThreadLocal<T> {
                 Entry e = oldTab[j];
                 if (e != null) {
                     ThreadLocal<?> k = e.get();
-                    if (k == null) {
+                    if (k == null) {//垃圾值
                         e.value = null; // Help the GC
                     } else {
-                        int h = k.threadLocalHashCode & (newLen - 1);
-                        while (newTab[h] != null)
+                        int h = k.threadLocalHashCode & (newLen - 1);//计算在新数组的索引
+                        while (newTab[h] != null)//有冲突，就往下一位找
                             h = nextIndex(h, newLen);
                         newTab[h] = e;
                         count++;
@@ -708,13 +738,14 @@ public class ThreadLocal<T> {
 
         /**
          * Expunge all stale entries in the table.
+         * 擦去数组里面的所有垃圾数据
          */
         private void expungeStaleEntries() {
             Entry[] tab = table;
             int len = tab.length;
             for (int j = 0; j < len; j++) {
                 Entry e = tab[j];
-                if (e != null && e.get() == null)
+                if (e != null && e.get() == null)//遇到了垃圾值
                     expungeStaleEntry(j);
             }
         }
