@@ -362,13 +362,14 @@ public class ThreadLocal<T> {
          * Construct a new map initially containing (firstKey, firstValue).
          * ThreadLocalMaps are constructed lazily, so we only create
          * one when we have at least one entry to put in it.
+         * 构造函数，初始化table
          */
         ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
             table = new Entry[INITIAL_CAPACITY];
             int i = firstKey.threadLocalHashCode & (INITIAL_CAPACITY - 1);
             table[i] = new Entry(firstKey, firstValue);
             size = 1;
-            setThreshold(INITIAL_CAPACITY);
+            setThreshold(INITIAL_CAPACITY);//设置阈值
         }
 
         /**
@@ -488,6 +489,7 @@ public class ThreadLocal<T> {
 
         /**
          * Remove the entry for key.
+         * 删除key
          */
         private void remove(ThreadLocal<?> key) {
             Entry[] tab = table;
@@ -497,8 +499,8 @@ public class ThreadLocal<T> {
                  e != null;
                  e = tab[i = nextIndex(i, len)]) {
                 if (e.get() == key) {
-                    e.clear();
-                    expungeStaleEntry(i);
+                    e.clear();//将e的引用置为null,方便gc
+                    expungeStaleEntry(i);//清理垃圾
                     return;
                 }
             }
