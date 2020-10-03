@@ -34,6 +34,10 @@ package java.lang;
  * @see     java.lang.Class
  * @since   JDK1.0
  */
+
+/**
+ * java所有类的祖先
+ */
 public class Object {
 
     private static native void registerNatives();
@@ -59,6 +63,7 @@ public class Object {
      * @return The {@code Class} object that represents the runtime
      *         class of this object.
      * @jls 15.8.2 Class Literals
+     * 返回当前对象所属的类的类对象
      */
     public final native Class<?> getClass();
 
@@ -97,6 +102,7 @@ public class Object {
      * @see     java.lang.Object#equals(java.lang.Object)
      * @see     java.lang.System#identityHashCode
      */
+    //计算hashcode的值
     public native int hashCode();
 
     /**
@@ -145,6 +151,7 @@ public class Object {
      * @see     #hashCode()
      * @see     java.util.HashMap
      */
+    //判断两个对象是否相等，默认比较地址
     public boolean equals(Object obj) {
         return (this == obj);
     }
@@ -209,6 +216,7 @@ public class Object {
      *               be cloned.
      * @see java.lang.Cloneable
      */
+    //浅拷贝，要求需要克隆的对象所属的类实现cloneable接口
     protected native Object clone() throws CloneNotSupportedException;
 
     /**
@@ -267,6 +275,7 @@ public class Object {
      *               the owner of this object's monitor.
      * @see        java.lang.Object#notifyAll()
      * @see        java.lang.Object#wait()
+     * 随机唤醒在当前这个对象锁里面的一条线程
      */
     public final native void notify();
 
@@ -291,6 +300,8 @@ public class Object {
      *               the owner of this object's monitor.
      * @see        java.lang.Object#notify()
      * @see        java.lang.Object#wait()
+     *
+     * 唤醒被当前对象锁阻塞的所有线程
      */
     public final native void notifyAll();
 
@@ -378,6 +389,7 @@ public class Object {
      *             this exception is thrown.
      * @see        java.lang.Object#notify()
      * @see        java.lang.Object#notifyAll()
+     * 等待timeout时间后自动醒来，或者被主动唤醒
      */
     public final native void wait(long timeout) throws InterruptedException;
 
@@ -442,6 +454,7 @@ public class Object {
      *             was waiting for a notification.  The <i>interrupted
      *             status</i> of the current thread is cleared when
      *             this exception is thrown.
+     *  至少等待timeout时间
      */
     public final void wait(long timeout, int nanos) throws InterruptedException {
         if (timeout < 0) {
@@ -497,6 +510,8 @@ public class Object {
      *             this exception is thrown.
      * @see        java.lang.Object#notify()
      * @see        java.lang.Object#notifyAll()
+     *
+     * 直接阻塞当前持有锁的这个线程
      */
     public final void wait() throws InterruptedException {
         wait(0);
@@ -551,6 +566,7 @@ public class Object {
      * @see java.lang.ref.WeakReference
      * @see java.lang.ref.PhantomReference
      * @jls 12.6 Finalization of Class Instances
+     * 被GC回收后执行清理操作
      */
     protected void finalize() throws Throwable { }
 }

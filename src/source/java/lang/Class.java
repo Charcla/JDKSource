@@ -256,11 +256,13 @@ public final class Class<T> implements java.io.Serializable,
      * @exception ExceptionInInitializerError if the initialization provoked
      *            by this method fails
      * @exception ClassNotFoundException if the class cannot be located
+     * 根据类的全名加载类对象
      */
     @CallerSensitive
     public static Class<?> forName(String className)
                 throws ClassNotFoundException {
         Class<?> caller = Reflection.getCallerClass();
+        //并且会对类的静态元素进行加载
         return forName0(className, true, ClassLoader.getClassLoader(caller), caller);
     }
 
@@ -325,6 +327,8 @@ public final class Class<T> implements java.io.Serializable,
      * @see       java.lang.Class#forName(String)
      * @see       java.lang.ClassLoader
      * @since     1.2
+     *
+     * 根据类的全名，类加载器进行加载类对象，并且可以指定是否进行类的初始化
      */
     @CallerSensitive
     public static Class<?> forName(String name, boolean initialize,
@@ -332,6 +336,7 @@ public final class Class<T> implements java.io.Serializable,
         throws ClassNotFoundException
     {
         Class<?> caller = null;
+        //获取安全管理器
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             // Reflective call to get caller class is only needed if a security manager
@@ -388,6 +393,8 @@ public final class Class<T> implements java.io.Serializable,
      *          invocation of {@link SecurityManager#checkPackageAccess
      *          s.checkPackageAccess()} denies access to the package
      *          of this class.
+     *
+     *  创建实例对象
      */
     @CallerSensitive
     public T newInstance()
@@ -401,7 +408,9 @@ public final class Class<T> implements java.io.Serializable,
         // the current Java memory model.
 
         // Constructor lookup
+        //判断是否已经有缓存的构造器
         if (cachedConstructor == null) {
+            //不能用此方法生成Class类的实例
             if (this == Class.class) {
                 throw new IllegalAccessException(
                     "Can not call newInstance() on the Class for java.lang.Class"
@@ -409,11 +418,13 @@ public final class Class<T> implements java.io.Serializable,
             }
             try {
                 Class<?>[] empty = {};
+                //获取该类已经声明的无参构造方法
                 final Constructor<T> c = getConstructor0(empty, Member.DECLARED);
                 // Disable accessibility checks on the constructor
                 // since we have to do the security check here anyway
                 // (the stack depth is wrong for the Constructor's
                 // security check to work)
+                //使无参构造方法可以被访问，打破private的限制
                 java.security.AccessController.doPrivileged(
                     new java.security.PrivilegedAction<Void>() {
                         public Void run() {
@@ -421,6 +432,7 @@ public final class Class<T> implements java.io.Serializable,
                                 return null;
                             }
                         });
+                //缓存此构造方法
                 cachedConstructor = c;
             } catch (NoSuchMethodException e) {
                 throw (InstantiationException)
@@ -429,7 +441,9 @@ public final class Class<T> implements java.io.Serializable,
         }
         Constructor<T> tmpConstructor = cachedConstructor;
         // Security check (same as in java.lang.reflect.Constructor)
+        //获取构造方法的权限修饰符
         int modifiers = tmpConstructor.getModifiers();
+        //根据获取的权限修饰符判断是否具有访问权限，
         if (!Reflection.quickCheckMemberAccess(this, modifiers)) {
             Class<?> caller = Reflection.getCallerClass();
             if (newInstanceCallerCache != caller) {
@@ -439,6 +453,7 @@ public final class Class<T> implements java.io.Serializable,
         }
         // Run constructor
         try {
+            // 整个方法的核心，使用类的构造方法来生成实例
             return tmpConstructor.newInstance((Object[])null);
         } catch (InvocationTargetException e) {
             Unsafe.getUnsafe().throwException(e.getTargetException());
@@ -479,6 +494,8 @@ public final class Class<T> implements java.io.Serializable,
      * @return  true if {@code obj} is an instance of this class
      *
      * @since JDK1.1
+     * A.class.isInstance(obj)-> 判断obj是否是A类的一个实例
+     * 作用和 obj instanceof A 一致
      */
     public native boolean isInstance(Object obj);
 
@@ -1968,6 +1985,7 @@ public final class Class<T> implements java.io.Serializable,
      * @jls 8.2 Class Members
      * @jls 8.4 Method Declarations
      * @since JDK1.1
+     * 返回类中声明的方法
      */
     @CallerSensitive
     public Method[] getDeclaredMethods() throws SecurityException {
@@ -2332,6 +2350,7 @@ public final class Class<T> implements java.io.Serializable,
      *
      * <p> Default policy: allow all clients access with normal Java access
      * control.
+     * 检查客户端是否有成员的访问权限
      */
     private void checkMemberAccess(int which, Class<?> caller, boolean checkProxyInterfaces) {
         final SecurityManager s = System.getSecurityManager();
@@ -2689,6 +2708,12 @@ public final class Class<T> implements java.io.Serializable,
     // Returns an array of "root" methods. These Method objects must NOT
     // be propagated to the outside world, but must instead be copied
     // via ReflectionFactory.copyMethod.
+
+    /**
+     * 获取类中声明的方法的具体实现
+     * @param publicOnly 是否只获取public方法
+     * @return
+     */
     private Method[] privateGetDeclaredMethods(boolean publicOnly) {
         checkInitted();
         Method[] res;
