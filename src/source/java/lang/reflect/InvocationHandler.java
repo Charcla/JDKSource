@@ -37,6 +37,8 @@ package java.lang.reflect;
  * @author      Peter Jones
  * @see         Proxy
  * @since       1.3
+ *
+ * 回调处理器，由被代理类实现
  */
 public interface InvocationHandler {
 
@@ -89,6 +91,14 @@ public interface InvocationHandler {
      * method invocation on the proxy instance.
      *
      * @see     UndeclaredThrowableException
+     */
+    /**
+     *
+     * @param proxy 被代理类对象
+     * @param method 被代理类的方法
+     * @param args 被代理方法的参数
+     * @return 被代理方法的返回值
+     * @throws Throwable
      */
     public Object invoke(Object proxy, Method method, Object[] args)
         throws Throwable;

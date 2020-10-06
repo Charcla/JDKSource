@@ -406,6 +406,7 @@ public class Proxy implements java.io.Serializable {
     /**
      * Generate a proxy class.  Must call the checkProxyAccess method
      * to perform permission checks before calling this.
+     * 返回代理类的类对象
      */
     private static Class<?> getProxyClass0(ClassLoader loader,
                                            Class<?>... interfaces) {
@@ -698,6 +699,16 @@ public class Proxy implements java.io.Serializable {
      *          argument or any of its elements are {@code null}, or
      *          if the invocation handler, {@code h}, is
      *          {@code null}
+     *
+     *
+     */
+    /**
+     * 生成动态代理对象
+     * @param loader 加载代理对象的类加载器，一般与被代理类保持一致
+     * @param interfaces 被代理对象实现的接口
+     * @param h 回调引用
+     * @return
+     * @throws IllegalArgumentException
      */
     @CallerSensitive
     public static Object newProxyInstance(ClassLoader loader,
@@ -705,9 +716,11 @@ public class Proxy implements java.io.Serializable {
                                           InvocationHandler h)
         throws IllegalArgumentException
     {
+        //校验是否为空
         Objects.requireNonNull(h);
-
+        //克隆接口实例
         final Class<?>[] intfs = interfaces.clone();
+        //安全验证
         final SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             checkProxyAccess(Reflection.getCallerClass(), loader, intfs);
@@ -716,6 +729,7 @@ public class Proxy implements java.io.Serializable {
         /*
          * Look up or generate the designated proxy class.
          */
+        //得到代理类
         Class<?> cl = getProxyClass0(loader, intfs);
 
         /*
@@ -725,9 +739,10 @@ public class Proxy implements java.io.Serializable {
             if (sm != null) {
                 checkNewProxyPermission(Reflection.getCallerClass(), cl);
             }
-
+            //获取到构造方法
             final Constructor<?> cons = cl.getConstructor(constructorParams);
             final InvocationHandler ih = h;
+            //如果构造方法不是public，则修改访问权限，使其可以被访问
             if (!Modifier.isPublic(cl.getModifiers())) {
                 AccessController.doPrivileged(new PrivilegedAction<Void>() {
                     public Void run() {
@@ -736,6 +751,7 @@ public class Proxy implements java.io.Serializable {
                     }
                 });
             }
+            //通过构造方法创建对象，传入InvocationHandler对象
             return cons.newInstance(new Object[]{h});
         } catch (IllegalAccessException|InstantiationException e) {
             throw new InternalError(e.toString(), e);
