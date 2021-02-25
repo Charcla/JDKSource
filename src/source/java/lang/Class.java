@@ -111,7 +111,7 @@ import sun.reflect.misc.ReflectUtil;
  * object.  For example, the type of {@code String.class} is {@code
  * Class<String>}.  Use {@code Class<?>} if the class being modeled is
  * unknown.
- *
+ *  Class类的作用是运行时提供或获得某个对象的类型信息
  * @author  unascribed
  * @see     java.lang.ClassLoader#defineClass(byte[], int, int)
  * @since   JDK1.0
@@ -133,6 +133,7 @@ public final class Class<T> implements java.io.Serializable,
      * Private constructor. Only the Java Virtual Machine creates Class objects.
      * This constructor is not used and prevents the default constructor being
      * generated.
+     * 私有构造器
      */
     private Class(ClassLoader loader) {
         // Initialize final field for classLoader.  The initialization value of non-null
@@ -353,6 +354,9 @@ public final class Class<T> implements java.io.Serializable,
         return forName0(name, initialize, loader, caller);
     }
 
+    /**
+     * 本地方法
+     */
     /** Called after security check for system loader access checks have been made. */
     private static native Class<?> forName0(String name, boolean initialize,
                                             ClassLoader loader,
@@ -523,6 +527,7 @@ public final class Class<T> implements java.io.Serializable,
      * @exception NullPointerException if the specified Class parameter is
      *            null.
      * @since JDK1.1
+     * A.class.isAssignableFrom(x) ==> 判断x类型的对象是否为A类型的实例
      */
     public native boolean isAssignableFrom(Class<?> cls);
 
@@ -533,6 +538,7 @@ public final class Class<T> implements java.io.Serializable,
      *
      * @return  {@code true} if this object represents an interface;
      *          {@code false} otherwise.
+     * 判断调用者是否为接口
      */
     public native boolean isInterface();
 
@@ -543,6 +549,8 @@ public final class Class<T> implements java.io.Serializable,
      * @return  {@code true} if this object represents an array class;
      *          {@code false} otherwise.
      * @since   JDK1.1
+     *
+     * 判断是否为数组
      */
     public native boolean isArray();
 
@@ -574,6 +582,7 @@ public final class Class<T> implements java.io.Serializable,
      * @see     java.lang.Double#TYPE
      * @see     java.lang.Void#TYPE
      * @since JDK1.1
+     * 判断是不是上面这些基本数据类型
      */
     public native boolean isPrimitive();
 
@@ -585,6 +594,7 @@ public final class Class<T> implements java.io.Serializable,
      * @return {@code true} if this class object represents an annotation
      *      type; {@code false} otherwise
      * @since 1.5
+     * ANNOTATION的值为0x00002000
      */
     public boolean isAnnotation() {
         return (getModifiers() & ANNOTATION) != 0;
@@ -597,6 +607,7 @@ public final class Class<T> implements java.io.Serializable,
      *         defined by the Java Language Specification.
      * @jls 13.1 The Form of a Binary
      * @since 1.5
+     * SYNTHETIC = 0x00001000；
      */
     public boolean isSynthetic() {
         return (getModifiers() & SYNTHETIC) != 0;
@@ -689,6 +700,7 @@ public final class Class<T> implements java.io.Serializable,
      * @see java.lang.ClassLoader
      * @see SecurityManager#checkPermission
      * @see java.lang.RuntimePermission
+     * 获取当前类的类加载器
      */
     @CallerSensitive
     public ClassLoader getClassLoader() {
@@ -743,7 +755,7 @@ public final class Class<T> implements java.io.Serializable,
      * null is returned.  If this object represents an array class then the
      * {@code Class} object representing the {@code Object} class is
      * returned.
-     *
+     * 获取当前类的父类
      * @return the superclass of the class represented by this object.
      */
     public native Class<? super T> getSuperclass();
@@ -970,6 +982,19 @@ public final class Class<T> implements java.io.Serializable,
      * @return the {@code int} representing the modifiers for this class
      * @see     java.lang.reflect.Modifier
      * @since JDK1.1
+     * 获取类的修饰符信息
+     * PUBLIC: 1
+     * PRIVATE: 2
+     * PROTECTED: 4
+     * STATIC: 8
+     * FINAL: 16
+     * SYNCHRONIZED: 32
+     * VOLATILE: 64
+     * TRANSIENT: 128
+     * NATIVE: 256
+     * INTERFACE: 512
+     * ABSTRACT: 1024
+     * STRICT: 2048
      */
     public native int getModifiers();
 
@@ -2673,6 +2698,12 @@ public final class Class<T> implements java.io.Serializable,
     // Returns an array of "root" constructors. These Constructor
     // objects must NOT be propagated to the outside world, but must
     // instead be copied via ReflectionFactory.copyConstructor.
+
+    /**
+     * 获取类的构造方法
+     * @param publicOnly
+     * @return
+     */
     private Constructor<T>[] privateGetDeclaredConstructors(boolean publicOnly) {
         checkInitted();
         Constructor<T>[] res;
@@ -3094,13 +3125,23 @@ public final class Class<T> implements java.io.Serializable,
         return null;
     }
 
+    /**
+     * 获取构造函数
+     * @param parameterTypes 传入参数类型数组
+     * @param which 方法修饰符
+     * @return
+     * @throws NoSuchMethodException
+     */
     private Constructor<T> getConstructor0(Class<?>[] parameterTypes,
                                         int which) throws NoSuchMethodException
     {
+        //获取所有构造函数集合
         Constructor<T>[] constructors = privateGetDeclaredConstructors((which == Member.PUBLIC));
         for (Constructor<T> constructor : constructors) {
+            //对比传入的参数类型，找到需要的构造函数
             if (arrayContentsEq(parameterTypes,
                                 constructor.getParameterTypes())) {
+                //返回构造函数的克隆
                 return getReflectionFactory().copyConstructor(constructor);
             }
         }
@@ -3111,6 +3152,12 @@ public final class Class<T> implements java.io.Serializable,
     // Other helpers and base implementation
     //
 
+    /**
+     * 判断两个数组对象中的每个下标的元素值是否一样
+     * @param a1
+     * @param a2
+     * @return
+     */
     private static boolean arrayContentsEq(Object[] a1, Object[] a2) {
         if (a1 == null) {
             return a2 == null || a2.length == 0;
