@@ -329,7 +329,7 @@ public final class Class<T> implements java.io.Serializable,
      * @see       java.lang.ClassLoader
      * @since     1.2
      *
-     * 根据类的全名，类加载器进行加载类对象，并且可以指定是否进行类的初始化
+     * 根据类的全名，类加载器进行加载类对象，并且可以指定是否进行类的初始化1
      */
     @CallerSensitive
     public static Class<?> forName(String name, boolean initialize,
