@@ -174,6 +174,11 @@ import sun.security.util.SecurityConstants;
  *
  * @see      #resolveClass(Class)
  * @since 1.0
+ * java类加载器
+ * 所有类加载器的父类
+ * 一个类加载器收到加载请求，先判断自己本地是否已经加载过了，
+ * 诺是，则直接返回，诺不是，则委托父类
+ * 父类如上，直到BootstrapClassLoader，此类能加载则直接加载，不能则抛给子类
  */
 public abstract class ClassLoader {
 
@@ -185,6 +190,7 @@ public abstract class ClassLoader {
     // The parent class loader for delegation
     // Note: VM hardcoded the offset of this field, thus all new fields
     // must be added *after* it.
+    //父类加载
     private final ClassLoader parent;
 
     /**
@@ -392,29 +398,34 @@ public abstract class ClassLoader {
      * @throws  ClassNotFoundException
      *          If the class could not be found
      */
+    //根据类的全名加载类，resolve指示是否链接类
     protected Class<?> loadClass(String name, boolean resolve)
         throws ClassNotFoundException
     {
         synchronized (getClassLoadingLock(name)) {
             // First, check if the class has already been loaded
+            //先判断此类是否已经加载过了
             Class<?> c = findLoadedClass(name);
             if (c == null) {
                 long t0 = System.nanoTime();
                 try {
                     if (parent != null) {
+                        //将此请求委托给父类
                         c = parent.loadClass(name, false);
                     } else {
+                        //查找指定的类，如果该类未被bootstrap类加载器加载，返回null
                         c = findBootstrapClassOrNull(name);
                     }
                 } catch (ClassNotFoundException e) {
                     // ClassNotFoundException thrown if class not found
                     // from the non-null parent class loader
                 }
-
+                //经过查询，该类未被加载
                 if (c == null) {
                     // If still not found, then invoke findClass in order
                     // to find the class.
                     long t1 = System.nanoTime();
+                    //查找该类，如果
                     c = findClass(name);
 
                     // this is the defining class loader; record the stats
