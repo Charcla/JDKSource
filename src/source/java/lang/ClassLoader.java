@@ -404,15 +404,16 @@ public abstract class ClassLoader {
     {
         synchronized (getClassLoadingLock(name)) {
             // First, check if the class has already been loaded
-            //先判断此类是否已经加载过了
+            //先判断此类是否已经加载过，如果加载过了，直接返回，没用则委托父类
             Class<?> c = findLoadedClass(name);
             if (c == null) {
                 long t0 = System.nanoTime();
                 try {
                     if (parent != null) {
-                        //将此请求委托给父类
+                        //如果有父加载，则将此请求委托给父类
                         c = parent.loadClass(name, false);
                     } else {
+                        //没有父加载器，则说明是extClassLoader,BootstrapClassLoader在Java中不存在
                         //查找指定的类，如果该类未被bootstrap类加载器加载，返回null
                         c = findBootstrapClassOrNull(name);
                     }
@@ -420,12 +421,12 @@ public abstract class ClassLoader {
                     // ClassNotFoundException thrown if class not found
                     // from the non-null parent class loader
                 }
-                //经过查询，该类未被加载
+                //经过查询，父加载器未加载该类，就要自己加载
                 if (c == null) {
                     // If still not found, then invoke findClass in order
                     // to find the class.
                     long t1 = System.nanoTime();
-                    //查找该类，如果
+                    //查找该类，如果该类在项目路径中，则加载项目路径中类，否则加载jar包中的类
                     c = findClass(name);
 
                     // this is the defining class loader; record the stats
@@ -1042,6 +1043,7 @@ public abstract class ClassLoader {
         return findLoadedClass0(name);
     }
 
+    //查找指定名字的class类，如果此类未被当前类加载器加载，则返回null
     private native final Class<?> findLoadedClass0(String name);
 
     /**
