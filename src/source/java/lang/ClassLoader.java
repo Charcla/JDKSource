@@ -195,14 +195,18 @@ public abstract class ClassLoader {
 
     /**
      * Encapsulates the set of parallel capable loader types.
+     * 一组并行的类加载器
      */
     private static class ParallelLoaders {
+        //私有化构造函数，保障此类单例
         private ParallelLoaders() {}
 
         // the set of parallel capable loader types
+        //弱引用，存储类加载器
         private static final Set<Class<? extends ClassLoader>> loaderTypes =
             Collections.newSetFromMap(
                 new WeakHashMap<Class<? extends ClassLoader>, Boolean>());
+        //首先加载所有类加载的父类classload进容器
         static {
             synchronized (loaderTypes) { loaderTypes.add(ClassLoader.class); }
         }
@@ -212,8 +216,10 @@ public abstract class ClassLoader {
          * Returns {@code true} is successfully registered; {@code false} if
          * loader's super class is not registered.
          */
+        //往并行容器中注册此classload
         static boolean register(Class<? extends ClassLoader> c) {
             synchronized (loaderTypes) {
+                //只有此类加载器的父类被加载了，此类才会加载（为了不打破双亲委派？）
                 if (loaderTypes.contains(c.getSuperclass())) {
                     // register the class loader as parallel capable
                     // if and only if all of its super classes are.
@@ -231,6 +237,7 @@ public abstract class ClassLoader {
         /**
          * Returns {@code true} if the given class loader type is
          * registered as parallel capable.
+         * 判断给的这个类加载器是否已经被注册到并行容器
          */
         static boolean isRegistered(Class<? extends ClassLoader> c) {
             synchronized (loaderTypes) {
@@ -243,6 +250,7 @@ public abstract class ClassLoader {
     // class loader is parallel capable.
     // Note: VM also uses this field to decide if the current class loader
     // is parallel capable and the appropriate lock object for class loading.
+    //并行的类加载集合，键为类名，值为锁对象
     private final ConcurrentHashMap<String, Object> parallelLockMap;
 
     // Hashtable that maps packages to certs
@@ -352,6 +360,7 @@ public abstract class ClassLoader {
      *
      * @throws  ClassNotFoundException
      *          If the class was not found
+     * 根据给定的类的全名加载类
      */
     public Class<?> loadClass(String name) throws ClassNotFoundException {
         return loadClass(name, false);
@@ -402,6 +411,7 @@ public abstract class ClassLoader {
     protected Class<?> loadClass(String name, boolean resolve)
         throws ClassNotFoundException
     {
+        //每一个类只有唯一的锁，保证了一个类只会被加载一次
         synchronized (getClassLoadingLock(name)) {
             // First, check if the class has already been loaded
             //先判断此类是否已经加载过，如果加载过了，直接返回，没用则委托父类
@@ -461,11 +471,13 @@ public abstract class ClassLoader {
      * @see #loadClass(String, boolean)
      *
      * @since  1.7
+     * 根据类名获取此类的类加载所使用的对象锁
      */
     protected Object getClassLoadingLock(String className) {
         Object lock = this;
         if (parallelLockMap != null) {
             Object newLock = new Object();
+            //往集合放入类名和类名所对应的锁
             lock = parallelLockMap.putIfAbsent(className, newLock);
             if (lock == null) {
                 lock = newLock;
@@ -870,6 +882,7 @@ public abstract class ClassLoader {
                                          String source);
 
     // true if the name is null or has the potential to be a valid binary name
+    //校验类名
     private boolean checkName(String name) {
         if ((name == null) || (name.length() == 0))
             return true;

@@ -133,7 +133,7 @@ public final class Class<T> implements java.io.Serializable,
      * Private constructor. Only the Java Virtual Machine creates Class objects.
      * This constructor is not used and prevents the default constructor being
      * generated.
-     * 私有构造器
+     * 私有构造器,
      */
     private Class(ClassLoader loader) {
         // Initialize final field for classLoader.  The initialization value of non-null
@@ -608,6 +608,7 @@ public final class Class<T> implements java.io.Serializable,
      * @jls 13.1 The Form of a Binary
      * @since 1.5
      * SYNTHETIC = 0x00001000；
+     * 判断此class对象是否是编译器生成的
      */
     public boolean isSynthetic() {
         return (getModifiers() & SYNTHETIC) != 0;
@@ -663,6 +664,7 @@ public final class Class<T> implements java.io.Serializable,
      *
      * @return  the name of the class or interface
      *          represented by this object.
+     * 获取类在虚拟机中的名称
      */
     public String getName() {
         String name = this.name;
